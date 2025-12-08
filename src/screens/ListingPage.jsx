@@ -30,18 +30,56 @@ export default function ListingPage({ onProductSelect, onBack }) {
       onPress={() => onProductSelect(product)}
       activeOpacity={0.8}
     >
-      <Image source={{ uri: product.image }} style={styles.productImage} />
-      <View style={styles.productOverlay} />
-      <View style={styles.productInfo}>
-        <View>
-          <Text style={styles.productName}>{product.name}</Text>
-          <Text style={styles.productDesc} numberOfLines={1}>
-            {product.description}
-          </Text>
+      <View style={styles.cardImageContainer}>
+        <Image source={{ uri: product.image }} style={styles.productImage} />
+
+        {/* Veg/Non-veg Indicator */}
+        <View style={styles.vegIndicator}>
+          <View style={[styles.vegDot, { borderColor: '#e74c3c' }]}>
+            <View style={styles.nonVegTriangle} />
+          </View>
         </View>
-        <View style={styles.priceTag}>
-          <Text style={styles.productPrice}>₹{product.price}</Text>
+
+        {/* Bestseller Badge */}
+        <View style={styles.bestsellerBadge}>
+          <Icon name="star" size={10} color="#fff" />
+          <Text style={styles.bestsellerText}>Bestseller</Text>
         </View>
+      </View>
+
+      <View style={styles.cardContent}>
+        <View style={styles.cardHeader}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.productName}>{product.name}</Text>
+
+            {/* Rating */}
+            <View style={styles.ratingRow}>
+              <Icon name="star" size={12} color="#ffc107" />
+              <Text style={styles.ratingText}>4.2</Text>
+              <Text style={styles.ratingCount}>(120)</Text>
+            </View>
+          </View>
+
+          <View style={styles.priceContainer}>
+            <Text style={styles.productPrice}>₹{product.price}</Text>
+          </View>
+        </View>
+
+        <Text style={styles.productDesc} numberOfLines={2}>
+          {product.description}
+        </Text>
+
+        {/* Add to Cart Button */}
+        <TouchableOpacity
+          style={styles.addButton}
+          onPress={(e) => {
+            e.stopPropagation();
+            onProductSelect(product);
+          }}
+        >
+          <Icon name="plus" size={14} color="#b8860b" />
+          <Text style={styles.addButtonText}>Add</Text>
+        </TouchableOpacity>
       </View>
     </TouchableOpacity>
   );
@@ -147,60 +185,137 @@ const styles = StyleSheet.create({
   },
   productCard: {
     marginVertical: 8,
-    borderRadius: 12,
+    borderRadius: 16,
     overflow: 'hidden',
     backgroundColor: '#fff',
-    elevation: 3,
+    elevation: 4,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.12,
+    shadowRadius: 6,
+  },
+  cardImageContainer: {
+    position: 'relative',
+    width: '100%',
+    height: 180,
   },
   productImage: {
     width: '100%',
-    height: 200,
+    height: '100%',
     resizeMode: 'cover',
   },
-  productOverlay: {
+  vegIndicator: {
     position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.2)',
+    top: 12,
+    left: 12,
+    backgroundColor: '#fff',
+    borderRadius: 4,
+    padding: 4,
   },
-  productInfo: {
+  vegDot: {
+    width: 16,
+    height: 16,
+    borderWidth: 2,
+    borderRadius: 2,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  vegDotInner: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  nonVegTriangle: {
+    width: 0,
+    height: 0,
+    backgroundColor: 'transparent',
+    borderStyle: 'solid',
+    borderLeftWidth: 5,
+    borderRightWidth: 5,
+    borderBottomWidth: 8,
+    borderLeftColor: 'transparent',
+    borderRightColor: 'transparent',
+    borderBottomColor: '#e74c3c',
+    transform: [{ rotate: '180deg' }],
+  },
+  bestsellerBadge: {
     position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
-    paddingHorizontal: 12,
-    paddingVertical: 12,
+    top: 12,
+    right: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#ff6b6b',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 12,
+    gap: 4,
+  },
+  bestsellerText: {
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: '700',
+    marginLeft: 4,
+  },
+  cardContent: {
+    padding: 14,
+  },
+  cardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-end',
+    alignItems: 'flex-start',
+    marginBottom: 8,
   },
   productName: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#fff',
+    color: '#000',
     marginBottom: 4,
   },
-  productDesc: {
-    fontSize: 12,
-    color: '#e0e0e0',
+  ratingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
   },
-  priceTag: {
-    backgroundColor: '#b8860b',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 8,
+  ratingText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#000',
+    marginLeft: 2,
+  },
+  ratingCount: {
+    fontSize: 11,
+    color: '#999',
+  },
+  priceContainer: {
+    alignItems: 'flex-end',
   },
   productPrice: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: '700',
-    color: '#fff',
+    color: '#b8860b',
+  },
+  productDesc: {
+    fontSize: 13,
+    color: '#666',
+    lineHeight: 18,
+    marginBottom: 12,
+  },
+  addButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#fef9f0',
+    borderWidth: 1,
+    borderColor: '#b8860b',
+    borderRadius: 8,
+    paddingVertical: 8,
+    gap: 6,
+  },
+  addButtonText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#b8860b',
+    marginLeft: 4,
   },
   emptyState: {
     flex: 1,

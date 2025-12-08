@@ -6,20 +6,82 @@ import {
   TouchableOpacity,
   ScrollView,
   TextInput,
+  Modal,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/FontAwesome';
 import { useSelector, useDispatch } from 'react-redux';
+import Toast from '../components/Toast';
 
-export default function AddressManagementScreen({ navigation }) {
+export default function AddressManagementScreen({ navigation, selectionMode = false, onSelectAddress }) {
   const dispatch = useDispatch();
   const addresses = useSelector(state => state.addresses);
 
+  // Form state
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [formData, setFormData] = useState({
+    name: '',
+    phone: '',
+    address: '',
+    city: '',
+    state: '',
+    pincode: '',
+    type: 'Home',
+  });
+
+  const [showToast, setShowToast] = useState(false);
+  const [toastMessage, setToastMessage] = useState('');
+  const [toastType, setToastType] = useState('success');
+
   const handleSetDefault = id => {
-    dispatch({ type: 'SET_DEFAULT_ADDRESS', payload: id });
+    dispatch({ type: 'addresses/setDefaultAddress', payload: id });
   };
 
   const handleDelete = id => {
-    dispatch({ type: 'DELETE_ADDRESS', payload: id });
+    dispatch({ type: 'addresses/deleteAddress', payload: id });
+  };
+
+  const handleSaveAddress = () => {
+    // Validate form
+    if (!formData.name || !formData.phone || !formData.address || !formData.city || !formData.state || !formData.pincode) {
+      setToastMessage('Please fill all fields');
+      setToastType('warning');
+      setShowToast(true);
+      return;
+    }
+
+    if (formData.phone.length !== 10) {
+      setToastMessage('Phone number must be exactly 10 digits');
+      setToastType('warning');
+      setShowToast(true);
+      return;
+    }
+
+    // Create new address
+    const newAddress = {
+      id: `ADDR${Date.now()}`,
+      ...formData,
+      isDefault: addresses.length === 0, // First address is default
+    };
+
+    // Dispatch to Redux
+    dispatch({ type: 'addresses/addAddress', payload: newAddress });
+
+    // Reset form and close
+    setFormData({
+      name: '',
+      phone: '',
+      address: '',
+      city: '',
+      state: '',
+      pincode: '',
+      type: 'Home',
+    });
+    setShowAddForm(false);
+
+    // If in selection mode, auto-select the new address
+    if (selectionMode && onSelectAddress) {
+      onSelectAddress(newAddress);
+    }
   };
 
   return (
@@ -29,7 +91,7 @@ export default function AddressManagementScreen({ navigation }) {
           <Icon name="arrow-left" size={24} color="#000" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>My Addresses</Text>
-        <TouchableOpacity>
+        <TouchableOpacity onPress={() => setShowAddForm(true)}>
           <Icon name="plus" size={24} color="#b8860b" />
         </TouchableOpacity>
       </View>
@@ -39,7 +101,10 @@ export default function AddressManagementScreen({ navigation }) {
           <View style={styles.emptyContainer}>
             <Icon name="map-marker" size={64} color="#ccc" />
             <Text style={styles.emptyText}>No addresses saved</Text>
-            <TouchableOpacity style={styles.addAddressBtn}>
+            <TouchableOpacity
+              style={styles.addAddressBtn}
+              onPress={() => setShowAddForm(true)}
+            >
               <Text style={styles.addAddressText}>Add Address</Text>
             </TouchableOpacity>
           </View>
@@ -73,23 +138,159 @@ export default function AddressManagementScreen({ navigation }) {
                 {address.address}, {address.city}, {address.state} -{' '}
                 {address.pincode}
               </Text>
-              {!address.isDefault && (
+              {selectionMode ? (
                 <TouchableOpacity
-                  style={styles.setDefaultBtn}
-                  onPress={() => handleSetDefault(address.id)}
+                  style={styles.selectBtn}
+                  onPress={() => {
+                    if (onSelectAddress) {
+                      onSelectAddress(address);
+                    }
+                  }}
                 >
-                  <Text style={styles.setDefaultText}>Set as Default</Text>
+                  <Text style={styles.selectText}>Select This Address</Text>
                 </TouchableOpacity>
+              ) : (
+                !address.isDefault && (
+                  <TouchableOpacity
+                    style={styles.setDefaultBtn}
+                    onPress={() => handleSetDefault(address.id)}
+                  >
+                    <Text style={styles.setDefaultText}>Set as Default</Text>
+                  </TouchableOpacity>
+                )
               )}
             </View>
           ))
         )}
       </ScrollView>
 
-      <TouchableOpacity style={styles.addBtn}>
+      <TouchableOpacity
+        style={styles.addBtn}
+        onPress={() => setShowAddForm(true)}
+      >
         <Icon name="plus" size={20} color="#fff" />
         <Text style={styles.addBtnText}>Add New Address</Text>
       </TouchableOpacity>
+
+      {/* Add Address Modal */}
+      <Modal
+        visible={showAddForm}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setShowAddForm(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Add New Address</Text>
+              <TouchableOpacity onPress={() => setShowAddForm(false)}>
+                <Icon name="times" size={24} color="#000" />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={styles.formContainer}>
+              <Text style={styles.inputLabel}>Full Name *</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="Enter your name"
+                value={formData.name}
+                onChangeText={(text) => setFormData({ ...formData, name: text })}
+              />
+
+              <Text style={styles.inputLabel}>Phone Number *</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="Enter phone number"
+                value={formData.phone}
+                onChangeText={(text) => setFormData({ ...formData, phone: text.replace(/[^0-9]/g, '') })}
+                keyboardType="number-pad"
+                maxLength={10}
+              />
+
+              <Text style={styles.inputLabel}>Address Type</Text>
+              <View style={styles.typeButtons}>
+                {['Home', 'Work', 'Other'].map(type => (
+                  <TouchableOpacity
+                    key={type}
+                    style={[
+                      styles.typeButton,
+                      formData.type === type && styles.typeButtonActive,
+                    ]}
+                    onPress={() => setFormData({ ...formData, type })}
+                  >
+                    <Text
+                      style={[
+                        styles.typeButtonText,
+                        formData.type === type && styles.typeButtonTextActive,
+                      ]}
+                    >
+                      {type}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              <Text style={styles.inputLabel}>Street Address *</Text>
+              <TextInput
+                style={[styles.input, styles.textArea]}
+                placeholder="House no., Building name, Street"
+                value={formData.address}
+                onChangeText={(text) => setFormData({ ...formData, address: text })}
+                multiline
+                numberOfLines={3}
+              />
+
+              <Text style={styles.inputLabel}>City *</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="Enter city"
+                value={formData.city}
+                onChangeText={(text) => setFormData({ ...formData, city: text })}
+              />
+
+              <Text style={styles.inputLabel}>State *</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="Enter state"
+                value={formData.state}
+                onChangeText={(text) => setFormData({ ...formData, state: text })}
+              />
+
+              <Text style={styles.inputLabel}>Pincode *</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="Enter pincode"
+                value={formData.pincode}
+                onChangeText={(text) => setFormData({ ...formData, pincode: text })}
+                keyboardType="number-pad"
+                maxLength={6}
+              />
+            </ScrollView>
+
+            <View style={styles.modalFooter}>
+              <TouchableOpacity
+                style={styles.cancelButton}
+                onPress={() => setShowAddForm(false)}
+              >
+                <Text style={styles.cancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.saveButton}
+                onPress={handleSaveAddress}
+              >
+                <Text style={styles.saveButtonText}>Save Address</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      <Toast
+        visible={showToast}
+        message={toastMessage}
+        type={toastType}
+        onHide={() => setShowToast(false)}
+      />
     </View>
   );
 }
@@ -219,6 +420,18 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
   },
+  selectBtn: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 6,
+    backgroundColor: '#b8860b',
+  },
+  selectText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
+  },
   addBtn: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -233,5 +446,111 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: '700',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    maxHeight: '90%',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#000',
+  },
+  formContainer: {
+    padding: 16,
+  },
+  inputLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#000',
+    marginBottom: 8,
+    marginTop: 12,
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 14,
+    color: '#000',
+    backgroundColor: '#f9f9f9',
+  },
+  textArea: {
+    height: 80,
+    textAlignVertical: 'top',
+  },
+  typeButtons: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 8,
+  },
+  typeButton: {
+    flex: 1,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#ddd',
+    alignItems: 'center',
+    backgroundColor: '#f9f9f9',
+  },
+  typeButtonActive: {
+    backgroundColor: '#b8860b',
+    borderColor: '#b8860b',
+  },
+  typeButtonText: {
+    fontSize: 14,
+    color: '#666',
+    fontWeight: '600',
+  },
+  typeButtonTextActive: {
+    color: '#fff',
+  },
+  modalFooter: {
+    flexDirection: 'row',
+    padding: 16,
+    gap: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#eee',
+  },
+  cancelButton: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#ddd',
+    alignItems: 'center',
+  },
+  cancelButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#666',
+  },
+  saveButton: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 8,
+    backgroundColor: '#b8860b',
+    alignItems: 'center',
+  },
+  saveButtonText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#fff',
   },
 });

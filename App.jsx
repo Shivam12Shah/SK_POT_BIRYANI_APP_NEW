@@ -62,6 +62,7 @@ function AppContent({ isDarkMode }) {
     setIsSplashFinished(true);
   };
   const [selectedOrderId, setSelectedOrderId] = useState(null);
+  const [selectedAddress, setSelectedAddress] = useState(null);
   const products = useSelector(state => state.products.items);
   const loggedIn = useSelector(state => state.user.loggedIn);
   const cartItems = useSelector(state => state.cart.items);
@@ -130,10 +131,21 @@ function AppContent({ isDarkMode }) {
         <CheckoutScreen
           navigation={{
             goBack: () => setCurrentScreen('home'),
+            navigate: (screen, params) => {
+              if (screen === 'OrderTracking') {
+                setSelectedOrderId(params.orderId);
+                setCurrentScreen('orderTracking');
+              } else if (screen === 'AddressManagement') {
+                setPreviousScreen('checkout');
+                setCurrentScreen('addressManagement');
+              }
+            },
           }}
+          selectedAddressFromManagement={selectedAddress}
           onOrderComplete={() => {
             setCurrentScreen('home');
             setActive('Home');
+            setSelectedAddress(null); // Reset selected address
           }}
         />
       );
@@ -171,14 +183,24 @@ function AppContent({ isDarkMode }) {
 
     // Address Management screen
     if (currentScreen === 'addressManagement') {
+      const selectionMode = previousScreen === 'checkout';
       return (
         <AddressManagementScreen
           navigation={{
             goBack: () => {
-              setCurrentScreen('home');
-              setActive('Profile');
+              if (previousScreen === 'checkout') {
+                setCurrentScreen('checkout');
+              } else {
+                setCurrentScreen('home');
+                setActive('Profile');
+              }
             },
             navigate: screen => setCurrentScreen(screen),
+          }}
+          selectionMode={selectionMode}
+          onSelectAddress={(address) => {
+            setSelectedAddress(address);
+            setCurrentScreen('checkout');
           }}
         />
       );
@@ -303,7 +325,6 @@ function AppContent({ isDarkMode }) {
       ]}
     >
       <View style={styles.content}>{renderContent()}</View>
-
       <View
         style={[
           isDarkMode ? styles.tabBarDark : styles.tabBar,
@@ -320,13 +341,13 @@ function AppContent({ isDarkMode }) {
           name="Profile"
           active={active === 'Profile'}
           onPress={() => (loggedIn ? switchTab('Profile') : setShowLogin(true))}
-          // disabled={!loggedIn}
           isDarkMode={isDarkMode}
         />
         <TabItemCenter
           onPress={() => switchTab('Party')}
           active={active === 'Party'}
           isDarkMode={isDarkMode}
+          label="Party"
         />
         <TabItem
           name="Search"
@@ -360,24 +381,24 @@ function TabItem({ name, active, onPress, disabled, cartCount, isDarkMode }) {
             name === 'Profile'
               ? 'user'
               : name === 'Cart'
-              ? 'shopping-cart'
-              : name === 'Search'
-              ? 'search'
-              : name === 'Party'
-              ? 'birthday-cake'
-              : 'home'
+                ? 'shopping-cart'
+                : name === 'Search'
+                  ? 'search'
+                  : name === 'Party'
+                    ? 'birthday-cake'
+                    : 'home'
           }
           size={18}
           color={
             active
               ? '#b8860b'
               : disabled
-              ? isDarkMode
-                ? '#888'
-                : '#ccc'
-              : isDarkMode
-              ? '#999'
-              : '#666'
+                ? isDarkMode
+                  ? '#888'
+                  : '#ccc'
+                : isDarkMode
+                  ? '#999'
+                  : '#666'
           }
           style={{ marginBottom: 4 }}
         />
@@ -395,9 +416,9 @@ function TabItem({ name, active, onPress, disabled, cartCount, isDarkMode }) {
             isDarkMode ? styles.tabLabelDark : styles.tabLabel,
             active && styles.tabLabelActive,
             disabled &&
-              (isDarkMode
-                ? styles.tabLabelDisabledDark
-                : styles.tabLabelDisabled),
+            (isDarkMode
+              ? styles.tabLabelDisabledDark
+              : styles.tabLabelDisabled),
           ]}
         >
           {name === 'Party' ? 'Party' : name}
@@ -511,6 +532,15 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '700',
     textAlign: 'center',
+  },
+  centerLabel: {
+    fontSize: 10,
+    color: '#666',
+    marginTop: 4,
+    fontWeight: '600',
+  },
+  centerLabelActive: {
+    color: '#b8860b',
   },
 });
 

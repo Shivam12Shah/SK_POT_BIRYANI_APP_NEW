@@ -26,7 +26,7 @@ export default function HomeScreen({
   const location = useSelector(state => state.location);
   const cartItems = useSelector(state => state.cart.items);
   const { latitude, longitude, loading, error, readableAddress } = location;
-  
+
   // Calculate total items and total quantity in cart
   const totalCartItems = cartItems.length;
   const totalCartQuantity = cartItems.reduce((sum, item) => sum + item.quantity, 0);
@@ -72,17 +72,17 @@ export default function HomeScreen({
                 ? 'Your Location'
                 : readableAddress
               : latitude && longitude
-              ? `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`
-              : 'Getting location...'}
+                ? `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`
+                : 'Getting location...'}
           </Text>
           <Text style={styles.locationSub}>
             {loading
               ? 'Detecting location...'
               : error
-              ? 'Location access needed'
-              : readableAddress === 'Simulator Location'
-              ? 'Demo location'
-              : 'Delivery location'}
+                ? 'Location access needed'
+                : readableAddress === 'Simulator Location'
+                  ? 'Demo location'
+                  : 'Delivery location'}
           </Text>
         </View>
         <View style={styles.headerRight}>
@@ -95,23 +95,6 @@ export default function HomeScreen({
               <Icon name="map-marker" size={16} color="#b8860b" />
             </TouchableOpacity>
           )}
-          {/* Cart Icon with Badge */}
-          <TouchableOpacity
-            style={styles.cartButton}
-            onPress={() => {
-              // Navigate to cart screen - you can add this later
-              console.log('Cart clicked');
-            }}
-          >
-            <Icon name="shopping-cart" size={20} color="#b8860b" />
-            {totalCartQuantity > 0 && (
-              <View style={styles.cartBadge}>
-                <Text style={styles.cartBadgeText}>
-                  {totalCartQuantity > 99 ? '99+' : totalCartQuantity}
-                </Text>
-              </View>
-            )}
-          </TouchableOpacity>
           <TouchableOpacity
             style={styles.loginButton}
             onPress={handleHeaderButtonPress}
@@ -138,8 +121,8 @@ export default function HomeScreen({
             <Text style={styles.deliveryTime}>
               {deliveryTime
                 ? `${deliveryTime.label} - ${new Date(
-                    deliveryTime.time,
-                  ).toLocaleDateString()}`
+                  deliveryTime.time,
+                ).toLocaleDateString()}`
                 : 'Select delivery time'}
             </Text>
             <Icon
@@ -151,35 +134,7 @@ export default function HomeScreen({
           </View>
         </TouchableOpacity>
 
-        <View style={styles.bannerPlaceholder} />
-
-        {/* Cart Summary Section */}
-        {totalCartItems > 0 && (
-          <View style={styles.cartSummary}>
-            <View style={styles.cartSummaryHeader}>
-              <Icon name="shopping-cart" size={18} color="#b8860b" />
-              <Text style={styles.cartSummaryTitle}>
-                Cart ({totalCartItems} {totalCartItems === 1 ? 'item' : 'items'})
-              </Text>
-              <Text style={styles.cartSummaryQuantity}>
-                {totalCartQuantity} {totalCartQuantity === 1 ? 'item' : 'items'} total
-              </Text>
-            </View>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.cartItemsScroll}>
-              {cartItems.map(item => (
-                <View key={item.id} style={styles.cartItemCard}>
-                  <Text style={styles.cartItemName} numberOfLines={1}>
-                    {item.product.name}
-                  </Text>
-                  <Text style={styles.cartItemQuantity}>Qty: {item.quantity}</Text>
-                  <Text style={styles.cartItemPrice}>
-                    ₹{(item.product.price * item.quantity).toFixed(0)}
-                  </Text>
-                </View>
-              ))}
-            </ScrollView>
-          </View>
-        )}
+        {/* <View style={styles.bannerPlaceholder} /> */}
 
         <View style={styles.grid}>
           {homeScreenProducts.map(p => (
@@ -208,7 +163,7 @@ export default function HomeScreen({
         <View style={{ marginTop: 20 }}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>All Categories</Text>
-            <TouchableOpacity onPress={() => {}}>
+            <TouchableOpacity onPress={() => { }}>
               <Text style={styles.sectionLink}>View Full Menu</Text>
             </TouchableOpacity>
           </View>
@@ -231,7 +186,7 @@ export default function HomeScreen({
         <View style={{ marginTop: 24 }}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Dastaan-E-Kebab</Text>
-            <TouchableOpacity onPress={() => {}}>
+            <TouchableOpacity onPress={() => { }}>
               <Text style={styles.sectionLink}>Explore this Collection</Text>
             </TouchableOpacity>
           </View>
@@ -244,7 +199,7 @@ export default function HomeScreen({
               </Text>
               <View style={styles.kebabBottom}>
                 <Text style={styles.kebabPrice}>₹159</Text>
-                <TouchableOpacity style={styles.addBtn} onPress={() => {}}>
+                <TouchableOpacity style={styles.addBtn} onPress={() => { }}>
                   <Text style={styles.addTxt}>Add</Text>
                 </TouchableOpacity>
               </View>
@@ -255,7 +210,7 @@ export default function HomeScreen({
               <Text style={styles.kebabTitle}>Beetroot & Peanut Kebab</Text>
               <View style={styles.kebabBottom}>
                 <Text style={styles.kebabPrice}>₹139</Text>
-                <TouchableOpacity style={styles.addBtn} onPress={() => {}}>
+                <TouchableOpacity style={styles.addBtn} onPress={() => { }}>
                   <Text style={styles.addTxt}>Add</Text>
                 </TouchableOpacity>
               </View>

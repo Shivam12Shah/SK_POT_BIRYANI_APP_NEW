@@ -5,7 +5,11 @@ import {
   Text,
   TouchableOpacity,
   ScrollView,
+  Linking,
+  Image,
+  Dimensions,
 } from 'react-native';
+import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
 import Icon from 'react-native-vector-icons/FontAwesome';
 import { useSelector, useDispatch } from 'react-redux';
 
@@ -13,16 +17,36 @@ export default function OrderTrackingScreen({ route, navigation }) {
   const { orderId } = route?.params || {};
   const dispatch = useDispatch();
 
-  // TODO: Fetch order details from Redux store or API
-  const order = {
+  // Fetch order details from Redux store
+  const orders = useSelector(state => state.orders);
+  const order = orders.find(o => o.id === orderId) || {
     id: orderId || 'ORD001',
-    status: 'Out for Delivery',
+    status: 'placed',
     estimatedTime: '30 minutes',
     address: '123 Main Street, City, State 12345',
-    items: [
-      { name: 'Chicken Biryani', quantity: 2 },
-      { name: 'Mutton Biryani', quantity: 1 },
-    ],
+    items: [],
+    total: 0,
+  };
+
+  // Delivery partner info (in real app, this would come from the order)
+  const deliveryPartner = {
+    name: 'Rajesh Kumar',
+    phone: '+91 98765 43210',
+    vehicle: 'Bike - MH 02 AB 1234',
+    rating: 4.8,
+  };
+
+  // Location coordinates (example - replace with actual coordinates)
+  const restaurantLocation = {
+    latitude: 19.0760,
+    longitude: 72.8777,
+    name: 'SK Pot Biryani Restaurant',
+  };
+
+  const deliveryLocation = {
+    latitude: 19.0896,
+    longitude: 72.8656,
+    name: order.address || 'Delivery Location',
   };
 
   const trackingSteps = [
@@ -32,6 +56,26 @@ export default function OrderTrackingScreen({ route, navigation }) {
     { id: 4, title: 'Out for Delivery', status: 'active', time: '10:30 AM' },
     { id: 5, title: 'Delivered', status: 'pending', time: 'Expected 11:00 AM' },
   ];
+
+  const handleCallDeliveryPartner = () => {
+    Linking.openURL(`tel:${deliveryPartner.phone}`);
+  };
+
+  const handleOpenMap = () => {
+    // Open Google Maps with directions from restaurant to delivery location
+    const origin = `${restaurantLocation.latitude},${restaurantLocation.longitude}`;
+    const destination = `${deliveryLocation.latitude},${deliveryLocation.longitude}`;
+    const url = `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}&travelmode=driving`;
+    Linking.openURL(url);
+  };
+
+  // Generate Google Maps Static API URL with route
+  const getStaticMapUrl = () => {
+    const size = '600x300';
+    const markers = `markers=color:red%7Clabel:R%7C${restaurantLocation.latitude},${restaurantLocation.longitude}&markers=color:green%7Clabel:D%7C${deliveryLocation.latitude},${deliveryLocation.longitude}`;
+    const path = `path=color:0x0000ff%7Cweight:3%7C${restaurantLocation.latitude},${restaurantLocation.longitude}%7C${deliveryLocation.latitude},${deliveryLocation.longitude}`;
+    return `https://maps.googleapis.com/maps/api/staticmap?size=${size}&${markers}&${path}&key=YOUR_API_KEY`;
+  };
 
   return (
     <View style={styles.container}>
@@ -49,6 +93,88 @@ export default function OrderTrackingScreen({ route, navigation }) {
           <Text style={styles.estimatedTime}>
             Estimated delivery: {order.estimatedTime}
           </Text>
+        </View>
+
+        {/* Delivery Partner Card */}
+        <View style={styles.deliveryPartnerCard}>
+          <View style={styles.partnerHeader}>
+            <View style={styles.partnerInfo}>
+              <View style={styles.partnerAvatar}>
+                <Icon name="user" size={24} color="#fff" />
+              </View>
+              <View style={styles.partnerDetails}>
+                <Text style={styles.partnerName}>{deliveryPartner.name}</Text>
+                <Text style={styles.partnerVehicle}>{deliveryPartner.vehicle}</Text>
+                <View style={styles.ratingContainer}>
+                  <Icon name="star" size={12} color="#ffc107" />
+                  <Text style={styles.ratingText}>{deliveryPartner.rating}</Text>
+                </View>
+              </View>
+            </View>
+            <TouchableOpacity
+              style={styles.callButton}
+              onPress={handleCallDeliveryPartner}
+            >
+              <Icon name="phone" size={20} color="#fff" />
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* Map View with Route */}
+        <View style={styles.mapCard}>
+          <MapView
+            style={styles.map}
+            provider={PROVIDER_GOOGLE}
+            initialRegion={{
+              latitude: (restaurantLocation.latitude + deliveryLocation.latitude) / 2,
+              longitude: (restaurantLocation.longitude + deliveryLocation.longitude) / 2,
+              latitudeDelta: 0.05,
+              longitudeDelta: 0.05,
+            }}
+          >
+            {/* Restaurant Marker */}
+            <Marker
+              coordinate={{
+                latitude: restaurantLocation.latitude,
+                longitude: restaurantLocation.longitude,
+              }}
+              title="SK Pot Biryani Restaurant"
+              description="Order pickup location"
+              pinColor="red"
+            />
+
+            {/* Delivery Location Marker */}
+            <Marker
+              coordinate={{
+                latitude: deliveryLocation.latitude,
+                longitude: deliveryLocation.longitude,
+              }}
+              title="Delivery Location"
+              description={order.address}
+              pinColor="green"
+            />
+
+            {/* Route Polyline */}
+            <Polyline
+              coordinates={[
+                {
+                  latitude: restaurantLocation.latitude,
+                  longitude: restaurantLocation.longitude,
+                },
+                {
+                  latitude: deliveryLocation.latitude,
+                  longitude: deliveryLocation.longitude,
+                },
+              ]}
+              strokeColor="#b8860b"
+              strokeWidth={3}
+            />
+          </MapView>
+
+          <TouchableOpacity style={styles.mapOverlay} onPress={handleOpenMap}>
+            <Icon name="external-link" size={16} color="#b8860b" />
+            <Text style={styles.mapText}>Open in Google Maps</Text>
+          </TouchableOpacity>
         </View>
 
         <View style={styles.trackingCard}>
@@ -101,15 +227,19 @@ export default function OrderTrackingScreen({ route, navigation }) {
 
         <View style={styles.itemsCard}>
           <Text style={styles.sectionTitle}>Order Items</Text>
-          {order.items.map((item, index) => (
-            <View key={index} style={styles.itemRow}>
-              <Text style={styles.itemName}>{item.name}</Text>
-              <Text style={styles.itemQuantity}>x {item.quantity}</Text>
-            </View>
-          ))}
+          {order.items && order.items.length > 0 ? (
+            order.items.map((item, index) => (
+              <View key={index} style={styles.itemRow}>
+                <Text style={styles.itemName}>{item.product?.name || 'Unknown Item'}</Text>
+                <Text style={styles.itemQuantity}>x {item.quantity}</Text>
+              </View>
+            ))
+          ) : (
+            <Text style={styles.itemName}>No items found</Text>
+          )}
         </View>
       </ScrollView>
-    </View>
+    </View >
   );
 }
 
@@ -151,6 +281,136 @@ const styles = StyleSheet.create({
   estimatedTime: {
     fontSize: 14,
     color: '#666',
+  },
+  deliveryPartnerCard: {
+    backgroundColor: '#fff',
+    borderRadius: 8,
+    padding: 16,
+    marginBottom: 12,
+  },
+  partnerHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  partnerInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  partnerAvatar: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: '#b8860b',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  partnerDetails: {
+    flex: 1,
+  },
+  partnerName: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#000',
+    marginBottom: 4,
+  },
+  partnerVehicle: {
+    fontSize: 12,
+    color: '#666',
+    marginBottom: 4,
+  },
+  ratingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  ratingText: {
+    fontSize: 12,
+    color: '#666',
+    marginLeft: 4,
+    fontWeight: '600',
+  },
+  callButton: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#4caf50',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  mapCard: {
+    backgroundColor: '#fff',
+    borderRadius: 8,
+    marginBottom: 12,
+    overflow: 'hidden',
+  },
+  map: {
+    width: '100%',
+    height: 250,
+  },
+  mapPlaceholder: {
+    height: 150,
+    backgroundColor: '#f0f0f0',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: '#b8860b',
+    borderStyle: 'dashed',
+  },
+  mapText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#b8860b',
+    marginTop: 8,
+  },
+  mapSubtext: {
+    fontSize: 12,
+    color: '#666',
+    marginTop: 4,
+  },
+  routeVisualization: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 20,
+    paddingHorizontal: 30,
+  },
+  locationMarker: {
+    alignItems: 'center',
+    gap: 8,
+  },
+  markerLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#333',
+  },
+  routeLine: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-evenly',
+    marginHorizontal: 20,
+    borderTopWidth: 2,
+    borderColor: '#b8860b',
+    borderStyle: 'dashed',
+    position: 'relative',
+  },
+  routeDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#b8860b',
+  },
+  mapOverlay: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 12,
+    backgroundColor: '#fff',
+    borderTopWidth: 1,
+    borderTopColor: '#eee',
   },
   trackingCard: {
     backgroundColor: '#fff',

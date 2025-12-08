@@ -11,6 +11,7 @@ import {
 import Icon from 'react-native-vector-icons/FontAwesome';
 import { useDispatch, useSelector } from 'react-redux';
 import { addToCart } from '../store/cartSlice';
+import Toast from '../components/Toast';
 
 export default function PDPPage({ product, onBack }) {
   const dispatch = useDispatch();
@@ -20,6 +21,8 @@ export default function PDPPage({ product, onBack }) {
   const [selectedDrinks, setSelectedDrinks] = useState([]);
   const [quantity, setQuantity] = useState(1);
   const [showAddonsModal, setShowAddonsModal] = useState(false);
+  const [showToast, setShowToast] = useState(false);
+  const [toastMessage, setToastMessage] = useState('');
 
   const toggleDip = dipId => {
     setSelectedDips(prev =>
@@ -77,9 +80,10 @@ export default function PDPPage({ product, onBack }) {
       }),
     );
 
-    alert('Added to cart!');
+    setToastMessage('Added to cart!');
+    setShowToast(true);
     setShowAddonsModal(false);
-    onBack();
+    setTimeout(() => onBack(), 1500);
   };
 
   const handleAddToCartClick = () => {
@@ -105,8 +109,9 @@ export default function PDPPage({ product, onBack }) {
         }),
       );
 
-      alert('Added to cart!');
-      onBack();
+      setToastMessage('Added to cart!');
+      setShowToast(true);
+      setTimeout(() => onBack(), 1500);
     } else {
       // If add-ons available, open modal
       setShowAddonsModal(true);
@@ -140,17 +145,65 @@ export default function PDPPage({ product, onBack }) {
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false}>
-        {/* Product Image */}
-        <Image source={{ uri: product.image }} style={styles.image} />
+        {/* Product Image with Overlay */}
+        <View style={styles.imageContainer}>
+          <Image source={{ uri: product.image }} style={styles.image} />
+          <View style={styles.imageOverlay} />
+
+          {/* Bestseller Badge */}
+          <View style={styles.badgeContainer}>
+            <View style={styles.badge}>
+              <Icon name="star" size={12} color="#fff" />
+              <Text style={styles.badgeText}>Bestseller</Text>
+            </View>
+          </View>
+        </View>
 
         {/* Product Info */}
         <View style={styles.infoCard}>
           <View style={styles.titleSection}>
-            <View>
+            <View style={{ flex: 1 }}>
               <Text style={styles.name}>{product.name}</Text>
+
+              {/* Rating Section */}
+              <View style={styles.ratingSection}>
+                <View style={styles.stars}>
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <Icon
+                      key={star}
+                      name="star"
+                      size={14}
+                      color={star <= 4 ? "#ffc107" : "#ddd"}
+                      style={{ marginRight: 2 }}
+                    />
+                  ))}
+                </View>
+                <Text style={styles.ratingText}>4.0 (250+ ratings)</Text>
+              </View>
+
               <Text style={styles.description}>{product.description}</Text>
+
+              {/* Feature Tags */}
+              <View style={styles.featureTags}>
+                <View style={styles.featureTag}>
+                  <Icon name="leaf" size={12} color="#4caf50" />
+                  <Text style={styles.featureTagText}>Fresh</Text>
+                </View>
+                <View style={styles.featureTag}>
+                  <Icon name="fire" size={12} color="#ff5722" />
+                  <Text style={styles.featureTagText}>Spicy</Text>
+                </View>
+                <View style={styles.featureTag}>
+                  <Icon name="clock-o" size={12} color="#2196f3" />
+                  <Text style={styles.featureTagText}>30 min</Text>
+                </View>
+              </View>
             </View>
-            <Text style={styles.basePrice}>₹{product.price}</Text>
+
+            <View style={styles.priceContainer}>
+              <Text style={styles.basePrice}>₹{product.price}</Text>
+              <Text style={styles.perServing}>per serving</Text>
+            </View>
           </View>
         </View>
 
@@ -202,7 +255,7 @@ export default function PDPPage({ product, onBack }) {
               </TouchableOpacity>
             </View>
 
-            <ScrollView 
+            <ScrollView
               style={styles.modalScroll}
               contentContainerStyle={{ paddingBottom: 20 }}
               showsVerticalScrollIndicator={true}
@@ -280,6 +333,14 @@ export default function PDPPage({ product, onBack }) {
           </View>
         </View>
       </Modal>
+
+      {/* Toast Notification */}
+      <Toast
+        visible={showToast}
+        message={toastMessage}
+        type="success"
+        onHide={() => setShowToast(false)}
+      />
     </View>
   );
 }
@@ -312,10 +373,43 @@ const styles = StyleSheet.create({
     flex: 1,
     textAlign: 'center',
   },
+  imageContainer: {
+    position: 'relative',
+    width: '100%',
+    height: 300,
+  },
   image: {
     width: '100%',
-    height: 280,
+    height: '100%',
     resizeMode: 'cover',
+  },
+  imageOverlay: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: 100,
+    background: 'linear-gradient(transparent, rgba(0,0,0,0.3))',
+  },
+  badgeContainer: {
+    position: 'absolute',
+    top: 16,
+    left: 16,
+  },
+  badge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#ff6b6b',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    gap: 4,
+  },
+  badgeText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '700',
+    marginLeft: 4,
   },
   infoCard: {
     backgroundColor: '#fff',
@@ -346,9 +440,51 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
   basePrice: {
-    fontSize: 18,
+    fontSize: 24,
     fontWeight: '700',
     color: '#b8860b',
+  },
+  priceContainer: {
+    alignItems: 'flex-end',
+  },
+  perServing: {
+    fontSize: 11,
+    color: '#999',
+    marginTop: 2,
+  },
+  ratingSection: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 8,
+  },
+  stars: {
+    flexDirection: 'row',
+    marginRight: 8,
+  },
+  ratingText: {
+    fontSize: 12,
+    color: '#666',
+    fontWeight: '600',
+  },
+  featureTags: {
+    flexDirection: 'row',
+    marginTop: 12,
+    gap: 8,
+  },
+  featureTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f5f5f5',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 16,
+    gap: 4,
+  },
+  featureTagText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#666',
+    marginLeft: 4,
   },
   section: {
     backgroundColor: '#fff',
@@ -421,8 +557,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 12,
     paddingBottom: 20,
-    borderTopWidth: 1,
-    borderTopColor: '#e0e0e0',
+    gap: 12,
   },
   quantityControl: {
     flexDirection: 'row',
@@ -449,6 +584,7 @@ const styles = StyleSheet.create({
   priceSection: {
     alignItems: 'flex-end',
     flex: 1,
+    marginRight: 16,
   },
   priceLabel: {
     fontSize: 12,
@@ -476,7 +612,7 @@ const styles = StyleSheet.create({
   // Modal styles
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: 'transparent',
     justifyContent: 'flex-end',
   },
   modalContent: {

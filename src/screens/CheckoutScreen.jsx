@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   StyleSheet,
@@ -9,12 +9,29 @@ import {
 } from 'react-native';
 import { useSelector, useDispatch } from 'react-redux';
 import Icon from 'react-native-vector-icons/FontAwesome';
+import { addOrder } from '../store/ordersSlice';
+import { clearCart } from '../store/cartSlice';
+import Toast from '../components/Toast';
 
-export default function CheckoutScreen({ navigation, onOrderComplete }) {
+export default function CheckoutScreen({ navigation, onOrderComplete, selectedAddressFromManagement }) {
   const dispatch = useDispatch();
   const cartItems = useSelector(state => state.cart.items);
-  const [selectedAddress, setSelectedAddress] = useState(null);
+  const addresses = useSelector(state => state.addresses);
+
+  // Get default address or use the one passed from address management
+  const defaultAddress = addresses.find(a => a.isDefault);
+  const [selectedAddress, setSelectedAddress] = useState(selectedAddressFromManagement || defaultAddress || null);
   const [paymentMethod, setPaymentMethod] = useState('cash');
+  const [showToast, setShowToast] = useState(false);
+  const [toastMessage, setToastMessage] = useState('');
+  const [toastType, setToastType] = useState('success');
+
+  // Update selected address when coming back from address management
+  useEffect(() => {
+    if (selectedAddressFromManagement) {
+      setSelectedAddress(selectedAddressFromManagement);
+    }
+  }, [selectedAddressFromManagement]);
 
   const calculateTotal = () => {
     return cartItems.reduce((total, item) => {
@@ -41,10 +58,57 @@ export default function CheckoutScreen({ navigation, onOrderComplete }) {
   };
 
   const handlePlaceOrder = () => {
-    // TODO: Implement order placement logic
-    if (onOrderComplete) {
-      onOrderComplete();
+    // Validate address is selected
+    if (!selectedAddress) {
+      setToastMessage('Please select a delivery address to continue');
+      setToastType('warning');
+      setShowToast(true);
+      return;
     }
+
+    // Create order object
+    const orderId = `ORD${Date.now()}`;
+    const orderDate = new Date().toISOString();
+    const total = calculateTotal();
+
+    // Format address string from selected address
+    const addressString = `${selectedAddress.address}, ${selectedAddress.city}, ${selectedAddress.state} - ${selectedAddress.pincode}`;
+
+    const order = {
+      id: orderId,
+      date: orderDate,
+      status: 'placed',
+      items: cartItems.map(item => ({
+        product: item.product,
+        quantity: item.quantity,
+        customizations: item.customizations,
+      })),
+      total: total,
+      address: addressString,
+      addressDetails: selectedAddress, // Store full address details
+      paymentMethod: paymentMethod,
+    };
+
+    // Add order to orders history
+    dispatch(addOrder(order));
+
+    // Clear the cart
+    dispatch(clearCart());
+
+    // Show success toast
+    setToastMessage(`Order #${orderId} placed successfully!`);
+    setToastType('success');
+    setShowToast(true);
+
+    // Navigate to order tracking after delay
+    setTimeout(() => {
+      if (navigation?.navigate) {
+        navigation.navigate('OrderTracking', { orderId });
+      }
+      if (onOrderComplete) {
+        onOrderComplete();
+      }
+    }, 2000);
   };
 
   return (
@@ -60,14 +124,31 @@ export default function CheckoutScreen({ navigation, onOrderComplete }) {
       <ScrollView style={styles.content}>
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Delivery Address</Text>
-          <TouchableOpacity style={styles.addressCard}>
+          <TouchableOpacity
+            style={styles.addressCard}
+            onPress={() => {
+              if (navigation?.navigate) {
+                navigation.navigate('AddressManagement', { selectionMode: true });
+              }
+            }}
+          >
             <Icon name="map-marker" size={20} color="#b8860b" />
-            <View style={styles.addressText}>
-              <Text style={styles.addressName}>Home</Text>
-              <Text style={styles.addressDetails}>
-                123 Main Street, City, State 12345
-              </Text>
-            </View>
+            {selectedAddress ? (
+              <View style={styles.addressText}>
+                <Text style={styles.addressName}>{selectedAddress.type || 'Address'}</Text>
+                <Text style={styles.addressDetails}>
+                  {selectedAddress.address}, {selectedAddress.city}, {selectedAddress.state} - {selectedAddress.pincode}
+                </Text>
+                <Text style={styles.addressPhone}>{selectedAddress.phone}</Text>
+              </View>
+            ) : (
+              <View style={styles.addressText}>
+                <Text style={styles.addressName}>Add Delivery Address</Text>
+                <Text style={styles.addressDetails}>
+                  Tap to select or add a delivery address
+                </Text>
+              </View>
+            )}
             <Icon name="chevron-right" size={20} color="#999" />
           </TouchableOpacity>
         </View>
@@ -127,6 +208,13 @@ export default function CheckoutScreen({ navigation, onOrderComplete }) {
           <Text style={styles.placeOrderText}>Place Order</Text>
         </TouchableOpacity>
       </View>
+
+      <Toast
+        visible={showToast}
+        message={toastMessage}
+        type={toastType}
+        onHide={() => setShowToast(false)}
+      />
     </View>
   );
 }
@@ -184,6 +272,11 @@ const styles = StyleSheet.create({
   addressDetails: {
     fontSize: 14,
     color: '#666',
+  },
+  addressPhone: {
+    fontSize: 12,
+    color: '#999',
+    marginTop: 4,
   },
   paymentOption: {
     flexDirection: 'row',

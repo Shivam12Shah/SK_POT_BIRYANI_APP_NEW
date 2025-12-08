@@ -44,34 +44,47 @@ export default function OrderHistoryScreen({ navigation }) {
               <View style={styles.orderHeader}>
                 <View>
                   <Text style={styles.orderId}>Order #{order.id}</Text>
-                  <Text style={styles.orderDate}>{order.date}</Text>
+                  <Text style={styles.orderDate}>
+                    {new Date(order.date).toLocaleDateString('en-US', {
+                      month: 'short',
+                      day: 'numeric',
+                      year: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })}
+                  </Text>
                 </View>
                 <View
                   style={[
                     styles.statusBadge,
-                    order.status === 'Delivered' && styles.statusDelivered,
+                    order.status === 'delivered' && styles.statusDelivered,
                   ]}
                 >
                   <Text
                     style={[
                       styles.statusText,
-                      order.status === 'Delivered' &&
-                        styles.statusTextDelivered,
+                      order.status === 'delivered' &&
+                      styles.statusTextDelivered,
                     ]}
                   >
-                    {order.status}
+                    {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
                   </Text>
                 </View>
               </View>
               <View style={styles.orderDetails}>
-                <Text style={styles.orderItems}>{order.items} items</Text>
-                <Text style={styles.orderTotal}>₹{order.total.toFixed(2)}</Text>
+                <Text style={styles.orderItems}>
+                  {order.items?.length || 0} item{order.items?.length !== 1 ? 's' : ''}
+                </Text>
+                <Text style={styles.orderTotal}>₹{order.total?.toFixed(2) || '0.00'}</Text>
               </View>
               <View style={styles.orderFooter}>
                 <TouchableOpacity style={styles.reorderBtn}>
                   <Text style={styles.reorderText}>Reorder</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={styles.trackBtn}>
+                <TouchableOpacity
+                  style={styles.trackBtn}
+                  onPress={() => navigation?.navigate('OrderTracking', { orderId: order.id })}
+                >
                   <Text style={styles.trackText}>Track Order</Text>
                 </TouchableOpacity>
               </View>
