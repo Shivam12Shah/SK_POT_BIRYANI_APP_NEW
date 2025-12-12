@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -11,11 +11,13 @@ import {
 import Icon from 'react-native-vector-icons/FontAwesome';
 import { useDispatch, useSelector } from 'react-redux';
 import { addToCart } from '../store/cartSlice';
+import { addToCartAPI, updateCartAddonsAPI, updateCartQtyAPI, isProductInCart, getCartItemByProductId } from '../store/cartActions';
 import Toast from '../components/Toast';
 
-export default function PDPPage({ product, onBack }) {
+export default function PDPPage({ product, onBack, onOpenLogin }) {
   const dispatch = useDispatch();
-  const yourState = useSelector(state => state.yourReducer);
+  const cartItems = useSelector(state => state.cart.items);
+  const isLoggedIn = useSelector(state => state.user.loggedIn);
   const [selectedDips, setSelectedDips] = useState([]);
   const [selectedBeverages, setSelectedBeverages] = useState([]);
   const [selectedDrinks, setSelectedDrinks] = useState([]);
@@ -23,6 +25,8 @@ export default function PDPPage({ product, onBack }) {
   const [showAddonsModal, setShowAddonsModal] = useState(false);
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
+  const [isInCart, setIsInCart] = useState(false);
+  const [existingCartItem, setExistingCartItem] = useState(null);
 
   const toggleDip = dipId => {
     setSelectedDips(prev =>
@@ -63,7 +67,39 @@ export default function PDPPage({ product, onBack }) {
 
   const totalPrice = (product.price + calculateAddonsPrice()) * quantity;
 
-  const handleAddToCart = () => {
+  // Check if product is already in cart
+  useEffect(() => {
+    const inCart = isProductInCart(cartItems, product._id || product.id);
+    setIsInCart(inCart);
+
+    if (inCart) {
+      const cartItem = getCartItemByProductId(cartItems, product._id || product.id);
+      setExistingCartItem(cartItem);
+
+      // Pre-populate addons from existing cart item
+      if (cartItem?.customizations) {
+        const dipIds = cartItem.customizations.dips?.map(d => d.id) || [];
+        const bevIds = cartItem.customizations.beverages?.map(b => b.id) || [];
+        const drinkIds = cartItem.customizations.drinks?.map(d => d.id) || [];
+
+        setSelectedDips(dipIds);
+        setSelectedBeverages(bevIds);
+        setSelectedDrinks(drinkIds);
+        setQuantity(cartItem.quantity || 1);
+      }
+    }
+  }, [cartItems, product._id, product.id]);
+
+  const handleAddToCart = async () => {
+    // Check authentication first
+    if (!isLoggedIn) {
+      setShowAddonsModal(false);
+      if (onOpenLogin) {
+        onOpenLogin();
+      }
+      return;
+    }
+
     const customizations = {
       dips: selectedDips.map(id => product.dips?.find(d => d.id === id) || null).filter(Boolean),
       beverages: selectedBeverages.map(id =>
@@ -72,50 +108,64 @@ export default function PDPPage({ product, onBack }) {
       drinks: selectedDrinks.map(id => product.drinks?.find(d => d.id === id) || null).filter(Boolean),
     };
 
-    dispatch(
-      addToCart({
-        product,
-        quantity,
-        customizations,
-      }),
-    );
+    // Convert to API format
+    const selectedAddons = {};
+    if (customizations.dips[0]) selectedAddons.dip = customizations.dips[0];
+    if (customizations.beverages[0]) selectedAddons.beverage = customizations.beverages[0];
+    if (customizations.drinks[0]) selectedAddons.drink = customizations.drinks[0];
 
-    setToastMessage('Added to cart!');
+    let result;
+    if (isInCart) {
+      // Update existing cart item - update both addons and quantity
+      const foodId = product._id || product.id;
+      // First update addons
+      const addonsResult = await dispatch(updateCartAddonsAPI(foodId, selectedAddons, product));
+      if (addonsResult.error === 'auth_required') {
+        setShowAddonsModal(false);
+        onOpenLogin && onOpenLogin();
+        return;
+      }
+
+      // Then update quantity
+      const qtyResult = await dispatch(updateCartQtyAPI(foodId, quantity));
+      if (qtyResult.error === 'auth_required') {
+        setShowAddonsModal(false);
+        onOpenLogin && onOpenLogin();
+        return;
+      }
+
+      result = { success: addonsResult.success && qtyResult.success };
+      setToastMessage(result.success ? 'Cart updated!' : 'Update failed');
+    } else {
+      // Add new item to cart
+      const foodId = product._id || product.id;
+      result = await dispatch(addToCartAPI(foodId, quantity, selectedAddons, product));
+      if (result.error === 'auth_required') {
+        setShowAddonsModal(false);
+        onOpenLogin && onOpenLogin();
+        return;
+      }
+      setToastMessage(result.success ? 'Added to cart!' : 'Failed to add');
+    }
+
     setShowToast(true);
     setShowAddonsModal(false);
-    setTimeout(() => onBack(), 1500);
+    if (result.success) {
+      setTimeout(() => onBack(), 1500);
+    }
   };
 
-  const handleAddToCartClick = () => {
-    // Check if product has any add-ons available
-    const hasAddons =
-      (product.dips && product.dips.length > 0) ||
-      (product.beverages && product.beverages.length > 0) ||
-      (product.drinks && product.drinks.length > 0);
-
-    if (!hasAddons) {
-      // If no add-ons, add directly to cart
-      const customizations = {
-        dips: [],
-        beverages: [],
-        drinks: [],
-      };
-
-      dispatch(
-        addToCart({
-          product,
-          quantity,
-          customizations,
-        }),
-      );
-
-      setToastMessage('Added to cart!');
-      setShowToast(true);
-      setTimeout(() => onBack(), 1500);
-    } else {
-      // If add-ons available, open modal
-      setShowAddonsModal(true);
+  const handleAddToCartClick = async () => {
+    // Check authentication first
+    if (!isLoggedIn) {
+      if (onOpenLogin) {
+        onOpenLogin();
+      }
+      return;
     }
+
+    // Always show addons modal to let user choose
+    setShowAddonsModal(true);
   };
 
   const CustomizationItem = ({ item, isSelected, onToggle }) => (
@@ -234,7 +284,7 @@ export default function PDPPage({ product, onBack }) {
         </View>
 
         <TouchableOpacity style={styles.addBtn} onPress={handleAddToCartClick}>
-          <Text style={styles.addBtnText}>Add to Cart</Text>
+          <Text style={styles.addBtnText}>{isInCart ? 'Update Cart' : 'Add to Cart'}</Text>
         </TouchableOpacity>
       </View>
 
@@ -327,7 +377,7 @@ export default function PDPPage({ product, onBack }) {
                 style={styles.modalAddBtn}
                 onPress={handleAddToCart}
               >
-                <Text style={styles.modalAddBtnText}>Add to Cart</Text>
+                <Text style={styles.modalAddBtnText}>{isInCart ? 'Update Cart' : 'Add to Cart'}</Text>
               </TouchableOpacity>
             </View>
           </View>

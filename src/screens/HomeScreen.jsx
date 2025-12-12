@@ -12,6 +12,7 @@ import DeliveryTimeModal from '../components/DeliveryTimeModal';
 import { useDispatch, useSelector } from 'react-redux';
 import { clearUser } from '../store/userSlice';
 import { fetchCurrentLocation } from '../store/locationActions';
+import { fetchProducts } from '../store/productsSlice';
 
 export default function HomeScreen({
   onOpenLogin,
@@ -20,16 +21,17 @@ export default function HomeScreen({
 }) {
   const dispatch = useDispatch();
   const products = useSelector(state => state.products.items);
+  const productsStatus = useSelector(state => state.products.status);
   const userProfile = useSelector(state => state.user.profile);
   const loggedIn = useSelector(state => state.user.loggedIn);
   const deliveryTime = useSelector(state => state.user.deliveryTime);
   const location = useSelector(state => state.location);
-  const cartItems = useSelector(state => state.cart.items);
+  const cartItems = useSelector(state => state.cart?.items || []);
   const { latitude, longitude, loading, error, readableAddress } = location;
 
   // Calculate total items and total quantity in cart
-  const totalCartItems = cartItems.length;
-  const totalCartQuantity = cartItems.reduce((sum, item) => sum + item.quantity, 0);
+  const totalCartItems = Array.isArray(cartItems) ? cartItems.length : 0;
+  const totalCartQuantity = Array.isArray(cartItems) ? cartItems.reduce((sum, item) => sum + (item.quantity || item.qty || 1), 0) : 0;
 
   const [showDeliveryTimeModal, setShowDeliveryTimeModal] = useState(false);
   console.log('HomeScreen products:', products);
@@ -46,20 +48,44 @@ export default function HomeScreen({
     }
   };
 
+  // Fetch products from API on mount
+  useEffect(() => {
+    if (productsStatus === 'idle') {
+      console.log('🔄 [HomeScreen] Fetching products from API...');
+      dispatch(fetchProducts());
+    }
+  }, [productsStatus, dispatch]);
+
+  // Fetch location on mount
+  useEffect(() => {
+    if (!latitude && !longitude && !loading) {
+      console.log('📍 [HomeScreen] Fetching current location...');
+      dispatch(fetchCurrentLocation());
+    }
+  }, [dispatch, latitude, longitude, loading]);
+
   // Show only first 6 items on home screen
   const homeScreenProducts = products.slice(0, 6);
 
-  // useEffect(() => {
-  //   // Products are already loaded from Redux store (productsSlice initialState)
-  //   // No need to override them
-  // }, []);
-
   useEffect(() => {
     // Fetch current location when component mounts
+    console.log('🏠 [HomeScreen] Current location state:', { latitude, longitude, readableAddress, loading, error });
     if (!latitude && !longitude) {
+      console.log('🏠 [HomeScreen] No location found, fetching...');
       dispatch(fetchCurrentLocation());
     }
   }, [dispatch, latitude, longitude]);
+
+  // Log location changes
+  useEffect(() => {
+    console.log('🔔 [HomeScreen] Location state changed:', {
+      latitude,
+      longitude,
+      readableAddress,
+      loading,
+      error,
+    });
+  }, [latitude, longitude, readableAddress, loading, error]);
 
   return (
     <View style={styles.container}>
@@ -134,15 +160,15 @@ export default function HomeScreen({
           </View>
         </TouchableOpacity>
 
-        {/* <View style={styles.bannerPlaceholder} /> */}
 
         <View style={styles.grid}>
           {homeScreenProducts.map(p => (
+            console.log("homeScreenProducts", p),
             <PromoCard
               key={p.id}
               title={p.name}
               price={p.price}
-              imageUrl={p.image}
+              imageUrl={p.images[0]}
               onPress={() => onProductSelect && onProductSelect(p)}
             />
           ))}

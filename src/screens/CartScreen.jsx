@@ -13,46 +13,49 @@ import Icon from 'react-native-vector-icons/FontAwesome';
 
 export default function CartScreen({ onOpenLogin, onGoHome, onCheckout }) {
   const dispatch = useDispatch();
-  const items = useSelector(state => state.cart.items);
+  const cart = useSelector(state => state.cart);
+  const cartDetails = cart.items || [];
   const loggedIn = useSelector(state => state.user.loggedIn);
 
+  console.log('📦 [CartScreen] Cart:', cart);
+
   const calculateItemTotal = item => {
-    let itemTotal = item.product?.price || 0;
+    // Handle both local cart (product) and backend cart (food) structure
+    const product = item.product || item.food;
+    if (!product) return 0;
 
-    // Add customization prices
+    let total = product.price * (item.quantity || item.qty || 1);
+
+    // Add customizations cost (local cart)
     if (item.customizations) {
-      // Add dips prices
-      if (item.customizations.dips && Array.isArray(item.customizations.dips)) {
-        item.customizations.dips.forEach(dip => {
-          if (dip && dip.price) itemTotal += dip.price;
+      if (item.customizations.dips) {
+        item.customizations.dips.forEach(d => {
+          total += d.price || 0;
         });
       }
-
-      // Add beverages prices
-      if (
-        item.customizations.beverages &&
-        Array.isArray(item.customizations.beverages)
-      ) {
-        item.customizations.beverages.forEach(bev => {
-          if (bev && bev.price) itemTotal += bev.price;
+      if (item.customizations.beverages) {
+        item.customizations.beverages.forEach(b => {
+          total += b.price || 0;
         });
       }
-
-      // Add drinks prices
-      if (
-        item.customizations.drinks &&
-        Array.isArray(item.customizations.drinks)
-      ) {
-        item.customizations.drinks.forEach(drink => {
-          if (drink && drink.price) itemTotal += drink.price;
+      if (item.customizations.drinks) {
+        item.customizations.drinks.forEach(d => {
+          total += d.price || 0;
         });
       }
     }
 
-    return itemTotal * item.quantity;
+    // Handle selectedAddons from backend
+    if (item.selectedAddons) {
+      if (item.selectedAddons.dip) total += item.selectedAddons.dip.price || 0;
+      if (item.selectedAddons.beverage) total += item.selectedAddons.beverage.price || 0;
+      if (item.selectedAddons.drink) total += item.selectedAddons.drink.price || 0;
+    }
+
+    return total;
   };
 
-  const total = items.reduce((s, it) => s + calculateItemTotal(it), 0);
+  const total = cartDetails?.reduce((sum, item) => sum + calculateItemTotal(item), 0) || 0;
 
   const handleRemoveItem = itemId => {
     dispatch(removeFromCart(itemId));
@@ -68,7 +71,7 @@ export default function CartScreen({ onOpenLogin, onGoHome, onCheckout }) {
   };
 
   // Show empty cart if no items
-  if (items.length === 0) {
+  if (!cartDetails || cartDetails.length === 0) {
     return (
       <View style={styles.container}>
         <View style={styles.emptyContainer}>
@@ -119,64 +122,88 @@ export default function CartScreen({ onOpenLogin, onGoHome, onCheckout }) {
   return (
     <View style={styles.container}>
       <ScrollView style={{ flex: 1, width: '100%', padding: 12 }}>
-        <Text style={styles.cartTitle}>Cart Items ({items.length})</Text>
-        {items.map(it => (
-          <View key={it.id} style={styles.cartItem}>
-            <Image
-              source={{ uri: it.product.image }}
-              style={styles.itemImage}
-              resizeMode="cover"
-            />
-            <View style={styles.itemInfo}>
-              <Text style={styles.itemName}>{it.product.name}</Text>
-              <Text style={styles.itemQuantity}>Qty: {it.quantity}</Text>
-              {it.customizations && (
-                <View style={styles.customizations}>
-                  {it.customizations.dips &&
-                    it.customizations.dips.length > 0 && (
+        <Text style={styles.cartTitle}>Cart Items ({cartDetails.length})</Text>
+        {cartDetails.map(it => {
+          // Handle both local cart (product) and backend cart (food) structure
+          const product = it.product || it.food;
+          const quantity = it.quantity || it.qty || 1;
+          const itemId = it.id || it._id;
+
+          return (
+            <View key={itemId} style={styles.cartItem}>
+              <Image
+                source={{ uri: product?.images?.[0] || product?.image }}
+                style={styles.itemImage}
+                resizeMode="cover"
+              />
+              <View style={styles.itemInfo}>
+                <Text style={styles.itemName}>{product?.title || product?.name}</Text>
+                <Text style={styles.itemQuantity}>Qty: {quantity}</Text>
+                {(it.customizations || it.selectedAddons) && (
+                  <View style={styles.customizations}>
+                    {/* Handle customizations from local cart */}
+                    {it.customizations?.dips && it.customizations.dips.length > 0 && (
                       <Text style={styles.customizationText}>
-                        Dips:{' '}
-                        {it.customizations.dips.map(d => d.name).join(', ')}
+                        Dips: {it.customizations.dips.map(d => d.name).join(', ')}
                       </Text>
                     )}
-                  {it.customizations.beverages &&
-                    it.customizations.beverages.length > 0 && (
+                    {it.customizations?.beverages && it.customizations.beverages.length > 0 && (
                       <Text style={styles.customizationText}>
-                        Beverages:{' '}
-                        {it.customizations.beverages
-                          .map(b => b.name)
-                          .join(', ')}
+                        Beverages: {it.customizations.beverages.map(b => b.name).join(', ')}
                       </Text>
                     )}
-                  {it.customizations.drinks &&
-                    it.customizations.drinks.length > 0 && (
+                    {it.customizations?.drinks && it.customizations.drinks.length > 0 && (
                       <Text style={styles.customizationText}>
-                        Drinks:{' '}
-                        {it.customizations.drinks.map(d => d.name).join(', ')}
+                        Drinks: {it.customizations.drinks.map(d => d.name).join(', ')}
                       </Text>
                     )}
-                </View>
-              )}
+                    {/* Handle selectedAddons from backend */}
+                    {it.selectedAddons?.dip && (
+                      <Text style={styles.customizationText}>Dip: {it.selectedAddons.dip.name}</Text>
+                    )}
+                    {it.selectedAddons?.beverage && (
+                      <Text style={styles.customizationText}>Beverage: {it.selectedAddons.beverage.name}</Text>
+                    )}
+                    {it.selectedAddons?.drink && (
+                      <Text style={styles.customizationText}>Drink: {it.selectedAddons.drink.name}</Text>
+                    )}
+                  </View>
+                )}
+              </View>
+              <View style={styles.itemRight}>
+                <Text style={styles.itemPrice}>
+                  ₹{calculateItemTotal(it).toFixed(0)}
+                </Text>
+                <TouchableOpacity
+                  style={styles.removeBtn}
+                  onPress={() => handleRemoveItem(itemId)}
+                >
+                  <Icon name="trash" size={16} color="#ff6b6b" />
+                </TouchableOpacity>
+              </View>
             </View>
-            <View style={styles.itemRight}>
-              <Text style={styles.itemPrice}>
-                ₹{calculateItemTotal(it).toFixed(0)}
-              </Text>
-              <TouchableOpacity
-                style={styles.removeBtn}
-                onPress={() => handleRemoveItem(it.id)}
-              >
-                <Icon name="trash" size={16} color="#ff6b6b" />
-              </TouchableOpacity>
-            </View>
-          </View>
-        ))}
+          );
+        })}
 
         <View style={styles.divider} />
 
         <View style={styles.totalSection}>
-          <Text style={styles.totalLabel}>Total:</Text>
-          <Text style={styles.totalPrice}>₹{total.toFixed(0)}</Text>
+          <View style={styles.totalRow}>
+            <Text style={styles.totalLabel}>Subtotal:</Text>
+            <Text style={styles.totalPrice}>₹{total.toFixed(0)}</Text>
+          </View>
+          {cartDetails.deliveryCharges > 0 && (
+            <View style={styles.totalRow}>
+              <Text style={styles.totalLabel}>Delivery Charges:</Text>
+              <Text style={styles.totalPrice}>₹{cartDetails.deliveryCharges}</Text>
+            </View>
+          )}
+          <View style={[styles.totalRow, { marginTop: 8, paddingTop: 8, borderTopWidth: 1, borderTopColor: '#ddd' }]}>
+            <Text style={[styles.totalLabel, { fontSize: 18 }]}>Grand Total:</Text>
+            <Text style={[styles.totalPrice, { fontSize: 20, color: '#b8860b' }]}>
+              ₹{cartDetails.grandTotal || total.toFixed(0)}
+            </Text>
+          </View>
         </View>
       </ScrollView>
 
@@ -195,20 +222,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#f2f2f2',
     justifyContent: 'space-between',
   },
-  card: { width: '86%', borderRadius: 8, alignItems: 'center' },
-  content: { alignItems: 'center', paddingVertical: 24 },
-  icon: { width: 120, height: 120, resizeMode: 'contain', marginBottom: 12 },
-  title: { marginTop: 8, fontWeight: '700', textAlign: 'center', fontSize: 18 },
-  subtitle: { textAlign: 'center', marginVertical: 12, color: '#666' },
-  cta: {
-    backgroundColor: '#b8860b',
-    width: '80%',
-    marginTop: 8,
-    paddingVertical: 12,
-    borderRadius: 6,
-    alignItems: 'center',
-  },
-  ctaText: { color: '#fff', fontWeight: '700' },
   cartTitle: {
     fontWeight: '700',
     fontSize: 16,
@@ -241,14 +254,17 @@ const styles = StyleSheet.create({
   customizationText: { fontSize: 11, color: '#666', marginTop: 2 },
   divider: { height: 1, backgroundColor: '#ddd', marginVertical: 12 },
   totalSection: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
     paddingVertical: 12,
     paddingHorizontal: 12,
   },
+  totalRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
   totalLabel: { fontWeight: '700', fontSize: 16, color: '#000' },
-  totalPrice: { fontWeight: '700', fontSize: 18, color: '#b8860b' },
+  totalPrice: { fontWeight: '700', fontSize: 18, color: '#000' },
   checkoutBtn: {
     backgroundColor: '#b8860b',
     marginHorizontal: 12,

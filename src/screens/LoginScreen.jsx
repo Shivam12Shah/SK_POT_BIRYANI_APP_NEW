@@ -6,43 +6,44 @@ import {
   TouchableOpacity,
   StyleSheet,
   ScrollView,
+  ActivityIndicator,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/FontAwesome';
 import { useDispatch, useSelector } from 'react-redux';
 import { setUser } from '../store/userSlice';
+import { sendOTP } from '../store/authActions';
 import OtpScreen from './OtpScreen';
 
 export default function LoginScreen({ onBack }) {
   const dispatch = useDispatch();
-  const yourState = useSelector(state => state.yourReducer);
 
   const [phone, setPhone] = useState('');
   const [valid, setValid] = useState(false);
   const [otpSent, setOtpSent] = useState(false);
-  const [generatedOtp, setGeneratedOtp] = useState(null);
   const [method, setMethod] = useState('sms'); // 'sms' or 'whatsapp'
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
   useEffect(() => {
     const digits = phone.replace(/\D/g, '');
     setValid(digits.length === 10);
   }, [phone]);
 
-  function sendOtp() {
+  async function sendOtpToPhone() {
     if (!valid) return;
-    const code = String(Math.floor(1000 + Math.random() * 9000));
-    setGeneratedOtp(code);
-    setOtpSent(true);
-  }
 
-  function verifyOtp(input) {
-    if (String(input) === String(generatedOtp)) {
-      dispatch(
-        setUser({
-          id: 'u_live',
-          name: 'Logged User',
-          phone: `+91${phone.replace(/\D/g, '')}`,
-        }),
-      );
+    setLoading(true);
+    setError('');
+
+    const phoneNumber = phone.replace(/\D/g, '');
+    const result = await dispatch(sendOTP(phoneNumber));
+
+    setLoading(false);
+
+    if (result.success) {
+      setOtpSent(true);
+    } else {
+      setError(result.error || 'Failed to send OTP. Please try again.');
     }
   }
 
@@ -50,8 +51,7 @@ export default function LoginScreen({ onBack }) {
     return (
       <OtpScreen
         phone={phone}
-        generatedOtp={generatedOtp}
-        onVerified={verifyOtp}
+        onVerified={() => { }} // Verification handled in OtpScreen
         onBack={() => setOtpSent(false)}
       />
     );
@@ -145,16 +145,22 @@ export default function LoginScreen({ onBack }) {
           </View>
 
           <Text style={styles.hint}>
-            You'll receive a 4-digit OTP through{' '}
+            You'll receive a 6-digit OTP through{' '}
             {method === 'sms' ? 'SMS' : 'WhatsApp'}.
           </Text>
 
+          {error ? <Text style={styles.errorText}>{error}</Text> : null}
+
           <TouchableOpacity
-            style={[styles.button, !valid && styles.buttonDisabled]}
-            onPress={sendOtp}
-            disabled={!valid}
+            style={[styles.button, (!valid || loading) && styles.buttonDisabled]}
+            onPress={sendOtpToPhone}
+            disabled={!valid || loading}
           >
-            <Text style={styles.buttonText}>SEND OTP</Text>
+            {loading ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <Text style={styles.buttonText}>SEND OTP</Text>
+            )}
           </TouchableOpacity>
         </View>
 
@@ -251,4 +257,11 @@ const styles = StyleSheet.create({
   },
   termsLink: { fontWeight: '700', color: '#333' },
   readMore: { color: '#b8860b', fontWeight: '700' },
+  errorText: {
+    color: '#ef4444',
+    fontSize: 14,
+    marginBottom: 12,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
 });

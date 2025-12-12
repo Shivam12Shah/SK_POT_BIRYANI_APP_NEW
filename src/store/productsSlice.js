@@ -1,15 +1,30 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
-import { biryaniItems } from '../data/dummyData';
+import { productService } from '../api';
+// import { biryaniItems } from '../data/dummyData'; // Keeping for reference
 
+/**
+ * Fetch products from API
+ */
 export const fetchProducts = createAsyncThunk('products/fetch', async () => {
-  return [];
+  try {
+    console.log('🍽️ [Products] Fetching food items from API...');
+    const response = await productService.getAll();
+    console.log('✅ [Products] Food items fetched:', response);
+
+    // Handle different response formats
+    const products = response.data || response.products || response;
+    return products;
+  } catch (error) {
+    console.error('❌ [Products] Failed to fetch food items:', error);
+    throw error;
+  }
 });
 
 const productsSlice = createSlice({
   name: 'products',
   initialState: {
-    items: biryaniItems,
-    status: 'idle',
+    items: [],
+    status: 'idle', // 'idle' | 'loading' | 'succeeded' | 'failed'
     error: null,
   },
   reducers: {
@@ -20,7 +35,7 @@ const productsSlice = createSlice({
       state.items.push(action.payload);
     },
     updateProduct(state, action) {
-      const idx = state.items.findIndex(p => p.id === action.payload.id);
+      const idx = state.items.findIndex(p => p._id === action.payload._id || p.id === action.payload.id);
       if (idx !== -1) state.items[idx] = action.payload;
     },
   },

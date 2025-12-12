@@ -1,36 +1,65 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import React, { useEffect, useState, useRef } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, TextInput, ActivityIndicator } from 'react-native';
 import Icon from 'react-native-vector-icons/FontAwesome';
 import { useSelector, useDispatch } from 'react-redux';
+import { verifyOTP } from '../store/authActions';
 
-export default function OtpScreen({ phone, generatedOtp, onVerified, onBack }) {
+export default function OtpScreen({ phone, onVerified, onBack }) {
   const dispatch = useDispatch();
-  const yourState = useSelector(state => state.yourReducer);
 
-  const [digits, setDigits] = useState(['', '', '', '']);
+  const [digits, setDigits] = useState(['', '', '', '', '', '']); // 6 digits
   const [verified, setVerified] = useState(false);
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    if (generatedOtp) {
-      const code = String(generatedOtp).padStart(4, '0');
-      setTimeout(() => {
-        setDigits(code.split(''));
-      }, 600);
+  // Create refs for each input
+  const inputRefs = useRef([]);
+
+  // No auto-fill - user must enter manually
+
+  const handleDigitChange = (index, value) => {
+    // Only allow numbers
+    if (value && !/^[0-9]$/.test(value)) return;
+
+    const newDigits = [...digits];
+    newDigits[index] = value;
+    setDigits(newDigits);
+    setError('');
+
+    // Auto-focus next input
+    if (value && index < 5) {
+      inputRefs.current[index + 1]?.focus();
     }
-  }, [generatedOtp]);
+  };
 
-  function handleVerify() {
+  const handleKeyPress = (index, key) => {
+    // Handle backspace
+    if (key === 'Backspace' && !digits[index] && index > 0) {
+      inputRefs.current[index - 1]?.focus();
+    }
+  };
+
+  async function handleVerify() {
     setError('');
     const code = digits.join('');
-    if (code === String(generatedOtp).padStart(4, '0')) {
+    if (code.length !== 6) {
+      setError('Please enter all 6 digits');
+      return;
+    }
+
+    setLoading(true);
+    const phoneNumber = phone.replace(/\D/g, '');
+    const result = await dispatch(verifyOTP(phoneNumber, code, 'user'));
+    setLoading(false);
+
+    if (result.success) {
       setVerified(true);
       // Auto-proceed after verification
       setTimeout(() => {
         onVerified && onVerified(code);
       }, 800);
     } else {
-      setError('Invalid OTP. Please try again.');
+      setError(result.error || 'Invalid OTP. Please try again.');
     }
   }
 
@@ -46,32 +75,43 @@ export default function OtpScreen({ phone, generatedOtp, onVerified, onBack }) {
       </View>
 
       <View style={styles.content}>
-        <Text style={styles.title}>Enter the 4-digit code</Text>
+        <Text style={styles.title}>Enter the 6-digit code</Text>
         <Text style={styles.subtitle}>We sent it to +91 {phone} via SMS</Text>
 
-        {/* OTP Boxes */}
+        {/* OTP Boxes with TextInput */}
         <View style={styles.otpRow}>
           {digits.map((d, i) => (
-            <View key={i} style={styles.otpBox}>
-              <Text style={styles.otpText}>{d}</Text>
-            </View>
+            <TextInput
+              key={i}
+              ref={(ref) => (inputRefs.current[i] = ref)}
+              style={styles.otpBox}
+              value={d}
+              onChangeText={(value) => handleDigitChange(i, value)}
+              onKeyPress={({ nativeEvent: { key } }) => handleKeyPress(i, key)}
+              keyboardType="number-pad"
+              maxLength={1}
+              selectTextOnFocus
+              autoFocus={i === 0}
+            />
           ))}
         </View>
-
-        <Text style={styles.hint}>Auto-filled for demo</Text>
 
         {/* Error Message */}
         {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
         {/* Single Verify OTP Button */}
         <TouchableOpacity
-          style={[styles.button, verified && styles.buttonSuccess]}
+          style={[styles.button, (verified || loading) && styles.buttonSuccess]}
           onPress={handleVerify}
-          disabled={verified}
+          disabled={verified || loading}
         >
-          <Text style={styles.buttonText}>
-            {verified ? '✓ VERIFIED' : 'VERIFY OTP'}
-          </Text>
+          {loading ? (
+            <ActivityIndicator color="#fff" />
+          ) : (
+            <Text style={styles.buttonText}>
+              {verified ? '✓ VERIFIED' : 'VERIFY OTP'}
+            </Text>
+          )}
         </TouchableOpacity>
 
         {/* Resend Section */}
@@ -123,7 +163,7 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   otpBox: {
-    width: 60,
+    width: 50,
     height: 60,
     borderRadius: 10,
     borderWidth: 2,
@@ -131,8 +171,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#fef9e7',
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#333',
+    textAlign: 'center',
   },
-  otpText: { fontSize: 24, fontWeight: '700', color: '#333' },
   hint: { fontSize: 12, color: '#999', marginBottom: 32 },
   resendSection: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   resendText: { fontSize: 14, color: '#666' },

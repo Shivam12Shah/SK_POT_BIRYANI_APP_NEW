@@ -34,26 +34,39 @@ export default function CheckoutScreen({ navigation, onOrderComplete, selectedAd
   }, [selectedAddressFromManagement]);
 
   const calculateTotal = () => {
-    return cartItems.reduce((total, item) => {
-      let itemTotal = item.product?.price || 0;
+    return (cartItems || []).reduce((total, item) => {
+      // Handle both local cart (product) and backend cart (food) structure
+      const product = item.product || item.food;
+      if (!product) return total;
+
+      let itemTotal = product.price || 0;
+
       if (item.customizations) {
         if (item.customizations.dips) {
           item.customizations.dips.forEach(dip => {
-            if (dip?.price) itemTotal += dip.price;
+            if (dip && dip.price) itemTotal += dip.price;
           });
         }
         if (item.customizations.beverages) {
           item.customizations.beverages.forEach(bev => {
-            if (bev?.price) itemTotal += bev.price;
+            if (bev && bev.price) itemTotal += bev.price;
           });
         }
         if (item.customizations.drinks) {
           item.customizations.drinks.forEach(drink => {
-            if (drink?.price) itemTotal += drink.price;
+            if (drink && drink.price) itemTotal += drink.price;
           });
         }
       }
-      return total + itemTotal * item.quantity;
+
+      // Handle selectedAddons from backend
+      if (item.selectedAddons) {
+        if (item.selectedAddons.dip) itemTotal += item.selectedAddons.dip.price || 0;
+        if (item.selectedAddons.beverage) itemTotal += item.selectedAddons.beverage.price || 0;
+        if (item.selectedAddons.drink) itemTotal += item.selectedAddons.drink.price || 0;
+      }
+
+      return total + (itemTotal * (item.quantity || item.qty || 1));
     }, 0);
   };
 

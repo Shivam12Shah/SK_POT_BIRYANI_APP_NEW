@@ -66,7 +66,10 @@ function AppContent({ isDarkMode }) {
   const products = useSelector(state => state.products.items);
   const loggedIn = useSelector(state => state.user.loggedIn);
   const cartItems = useSelector(state => state.cart.items);
-  const cartCount = cartItems.reduce((total, item) => total + item.quantity, 0);
+
+  // Calculate total items and total quantity in cart
+  const totalCartItems = cartItems.items?.length || 0;
+  const totalCartQuantity = cartItems.items?.reduce((sum, item) => sum + (item.quantity || item.qty || 1), 0) || 0;
 
   const switchTab = newTab => {
     setPreviousTab(active);
@@ -87,6 +90,12 @@ function AppContent({ isDarkMode }) {
       setShowLogin(false);
     }
   }, [loggedIn]);
+
+  // Load user from storage on app start
+  useEffect(() => {
+    const { loadUserFromStorage } = require('./src/store/authActions');
+    store.dispatch(loadUserFromStorage());
+  }, []);
 
   // When switching tabs, reset navigation state
   useEffect(() => {
@@ -117,10 +126,8 @@ function AppContent({ isDarkMode }) {
       return (
         <PDPPage
           product={selectedProduct}
-          onBack={() => {
-            setCurrentScreen(previousScreen);
-            setSelectedProduct(null);
-          }}
+          onBack={() => setCurrentScreen(previousScreen || 'home')}
+          onOpenLogin={() => setShowLogin(true)}
         />
       );
     }
@@ -359,7 +366,7 @@ function AppContent({ isDarkMode }) {
           name="Cart"
           active={active === 'Cart'}
           onPress={() => switchTab('Cart')}
-          cartCount={cartCount}
+          cartCount={totalCartQuantity}
           isDarkMode={isDarkMode}
         />
       </View>
